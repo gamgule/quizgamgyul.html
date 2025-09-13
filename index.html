@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>퀴즈감귤</title>
-    <!-- Tailwind CSS CDN -->
+    <title>내 Firebase 연동 퀴즈 앱</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
@@ -19,39 +18,15 @@
             visibility: hidden;
         }
     </style>
-    <!-- Firebase CDN -->
+    
+    <!-- Firebase SDK (사용자 정의 설정용) -->
     <script type="module">
-        console.log("스크립트 시작: '퀴즈감귤' 앱을 로딩하는 중...");
-
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, updateDoc, doc, getDocs, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        setLogLevel('debug');
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firestore and Auth instances
-        let app;
-        let db;
-        let auth;
-        let userId;
-        // 관리자 상태를 브라우저에 저장
-        let isAdmin = localStorage.getItem('isAdmin') === 'true';
-        // 기본 관리자 비밀번호. 필요에 따라 변경할 수 있습니다.
-        let adminPassword = 'gamgyul';
-
-        // ======================================================================================
-        // TODO: ★여기에 여러분의 Firebase 설정값을 붙여넣어 주세요.★
-        // Firebase 콘솔 > 프로젝트 설정 > 일반 탭에서 찾을 수 있습니다.
-        // 예를 들어 아래와 같은 형식의 코드입니다.
-        // const firebaseConfig = {
-        //     apiKey: "AIzaSy...",
-        //     authDomain: "your-project.firebaseapp.com",
-        //     projectId: "your-project",
-        //     storageBucket: "your-project.appspot.com",
-        //     messagingSenderId: "123456789",
-        //     appId: "1:1234567890:web:abcdef"
-        // };
-        // ======================================================================================
+        // Firebase 설정 (여기에 사용자님의 Firebase config를 붙여넣으세요)
+        // 예시: const firebaseConfig = { apiKey: "...", authDomain: "...", ... };
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyCKUUty_87HsQIlpsSNZunnHpULAlM32Pc",
@@ -63,17 +38,11 @@ const firebaseConfig = {
   measurementId: "G-S7ML16E2CY"
 };
 
-        // 앱 환경에서 제공되는 고유한 값을 사용하도록 수정
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        let app, db, auth;
+        let userId = null;
+        let isAdmin = false;
+        let adminPassword = 'gamgyul';
 
-        let isAuthReady = false;
-        
-        // Firestore collection path
-        const QUIZ_COLLECTION_PATH = `artifacts/${appId}/public/data/quiz_answers`;
-        const QUIZ_STATUS_DOC = `artifacts/${appId}/public/data/quiz_status`;
-        
-        // Get UI elements
         const quizForm = document.getElementById('quiz-form');
         const resultsContainer = document.getElementById('results-container');
         const participantView = document.getElementById('participant-view');
@@ -89,6 +58,7 @@ const firebaseConfig = {
         const backToParticipantButton = document.getElementById('back-to-participant');
         const backToAdminButton = document.getElementById('back-to-admin');
         const adminButton = document.getElementById('admin-button');
+        const userIdDisplay = document.getElementById('user-id-display');
         const changePasswordButton = document.getElementById('change-password-button');
         const passwordModal = document.getElementById('password-modal');
         const changePassForm = document.getElementById('change-password-form');
@@ -97,51 +67,58 @@ const firebaseConfig = {
         const newPassInput = document.getElementById('new-password');
         const confirmNewPassInput = document.getElementById('confirm-new-password');
 
-        // Initialize and authenticate Firebase
         const initFirebase = async () => {
-            console.log("Firebase 초기화 중...");
-            if (!firebaseConfig.apiKey) {
-                const message = "Firebase 설정이 필요합니다. 코드를 수정해주세요.";
-                console.error(message);
-                showTemporaryMessage(message, 'bg-red-500');
-                return;
-            }
             try {
+                if (Object.keys(firebaseConfig).length === 0) {
+                    showTemporaryMessage("Firebase 설정이 누락되었습니다. 'firebaseConfig'를 채워주세요.", 'bg-red-500');
+                    return;
+                }
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
-                
-                // 인증 상태를 한 번에 처리하도록 로직 개선
-                onAuthStateChanged(auth, async (user) => {
+
+                // 익명 로그인
+                await signInAnonymously(auth);
+
+                onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
+                        userIdDisplay.textContent = `내 ID: ${userId}`;
+                        setupRealtimeListeners();
+                        updateUI();
                     } else {
-                        // 사용자 토큰이 없는 경우 익명으로 로그인
-                        await signInAnonymously(auth);
-                        userId = auth.currentUser.uid;
+                        console.log("No user is signed in.");
+                        userId = null;
+                        userIdDisplay.textContent = "로그인되지 않음";
                     }
-                    isAuthReady = true;
-                    console.log('Firebase가 준비되었습니다. 사용자 ID:', userId);
-                    setupRealtimeListeners();
                 });
-
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                }
-
             } catch (error) {
-                console.error("Firebase 초기화 실패:", error);
-                showTemporaryMessage("Firebase 연결에 실패했습니다. 설정을 확인해주세요.", 'bg-red-500');
+                console.error("Firebase initialization failed:", error);
+                showTemporaryMessage("Firebase 연결 오류가 발생했습니다. 설정을 확인해주세요.", 'bg-red-500');
             }
         };
 
-        const setupRealtimeListeners = async () => {
-            if (!isAuthReady) return;
+        const getAnswersCollection = () => {
+            return collection(db, `quiz_answers`);
+        };
 
-            // 퀴즈 상태를 실시간으로 확인 (공개되었는지, 초기화되었는지)
-            onSnapshot(doc(db, QUIZ_STATUS_DOC), (docSnap) => {
-                const isRevealed = docSnap.exists() && docSnap.data().revealed;
-                if (isRevealed) {
+        const getStatusDoc = () => {
+            return doc(db, `quiz_status/status`);
+        };
+
+        const setupRealtimeListeners = () => {
+            if (!db) return;
+            
+            onSnapshot(getAnswersCollection(), (snapshot) => {
+                const answers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                updateAdminList(answers);
+                updateResultsList(answers);
+                console.log("Answers updated in real-time.");
+            });
+
+            onSnapshot(getStatusDoc(), (doc) => {
+                const data = doc.data();
+                if (data && data.revealed) {
                     showResultsView();
                 } else {
                     if (isAdmin) {
@@ -150,18 +127,6 @@ const firebaseConfig = {
                         showParticipantView();
                     }
                 }
-            });
-
-            // 제출된 답변 목록을 실시간으로 확인
-            onSnapshot(query(collection(db, QUIZ_COLLECTION_PATH)), (snapshot) => {
-                let answers = [];
-                snapshot.forEach((doc) => {
-                    answers.push({ id: doc.id, ...doc.data() });
-                });
-                
-                // 관리자 화면과 최종 결과 화면에 데이터를 업데이트
-                updateAdminList(answers);
-                updateResultsList(answers);
             });
         };
 
@@ -189,6 +154,10 @@ const firebaseConfig = {
             passwordModal.classList.add('hidden');
         };
 
+        const updateUI = () => {
+            // Firestore 리스너가 UI를 업데이트하므로 별도로 호출할 필요 없음
+        };
+        
         const updateAdminList = (answers) => {
             resultsListAdmin.innerHTML = '';
             answers.forEach(answer => {
@@ -212,10 +181,6 @@ const firebaseConfig = {
 
         quizForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!isAuthReady) {
-                showTemporaryMessage("인증 준비 중입니다. 잠시 후 다시 시도해주세요.", 'bg-yellow-500');
-                return;
-            }
 
             const name = document.getElementById('participant-name').value;
             const answer = document.getElementById('quiz-answer').value;
@@ -226,45 +191,41 @@ const firebaseConfig = {
             }
 
             try {
-                await addDoc(collection(db, QUIZ_COLLECTION_PATH), {
+                await addDoc(getAnswersCollection(), {
                     name,
                     answer,
-                    createdAt: new Date()
+                    timestamp: new Date().toISOString()
                 });
-
                 quizForm.reset();
                 showTemporaryMessage("답변이 성공적으로 제출되었습니다!", 'bg-green-500');
-            } catch (e) {
-                console.error("Error submitting answer: ", e);
+            } catch (error) {
+                console.error("Error submitting answer:", error);
                 showTemporaryMessage("답변 제출 중 오류가 발생했습니다.", 'bg-red-500');
             }
         });
 
         revealButton.addEventListener('click', async () => {
-            if (!isAuthReady) return;
             try {
-                await setDoc(doc(db, QUIZ_STATUS_DOC), { revealed: true }, { merge: true });
+                await setDoc(getStatusDoc(), { revealed: true }, { merge: true });
                 showTemporaryMessage("정답이 공개되었습니다!", 'bg-green-500');
-            } catch (e) {
-                console.error("Error revealing answers: ", e);
+            } catch (error) {
+                console.error("Error revealing answers:", error);
                 showTemporaryMessage("정답 공개 중 오류가 발생했습니다.", 'bg-red-500');
             }
         });
 
         resetButton.addEventListener('click', async () => {
-            if (!isAuthReady) return;
             try {
-                // 먼저 모든 답변 문서 삭제
-                const q = query(collection(db, QUIZ_COLLECTION_PATH));
-                const answerDocs = await getDocs(q);
-                const deletions = answerDocs.docs.map(d => deleteDoc(d.ref));
-                await Promise.all(deletions);
-                
-                // 그 다음 퀴즈 상태 초기화
-                await setDoc(doc(db, QUIZ_STATUS_DOC), { revealed: false }, { merge: true });
+                const querySnapshot = await getDocs(getAnswersCollection());
+                querySnapshot.forEach(async (doc) => {
+                    await deleteDoc(doc.ref);
+                });
+
+                await setDoc(getStatusDoc(), { revealed: false }, { merge: true });
+
                 showTemporaryMessage("퀴즈가 초기화되었습니다!", 'bg-red-500');
-            } catch (e) {
-                console.error("Error resetting quiz: ", e);
+            } catch (error) {
+                console.error("Error resetting quiz:", error);
                 showTemporaryMessage("퀴즈 초기화 중 오류가 발생했습니다.", 'bg-red-500');
             }
         });
@@ -279,7 +240,6 @@ const firebaseConfig = {
             const password = adminLoginPass.value;
             if (password === adminPassword) {
                 isAdmin = true;
-                localStorage.setItem('isAdmin', 'true');
                 showTemporaryMessage("관리자 로그인 성공!", 'bg-green-500');
                 showAdminView();
             } else {
@@ -289,22 +249,20 @@ const firebaseConfig = {
 
         backToParticipantButton.addEventListener('click', () => {
             isAdmin = false;
-            localStorage.removeItem('isAdmin');
             showParticipantView();
         });
 
-        backToAdminButton.addEventListener('click', async () => {
-            // "revealed" 상태를 false로 변경하여 관리자 화면으로 돌아갈 수 있도록 수정
-            if (!isAuthReady) return;
-            try {
-                await setDoc(doc(db, QUIZ_STATUS_DOC), { revealed: false }, { merge: true });
-                showTemporaryMessage("관리자 화면으로 돌아갑니다.", 'bg-blue-500');
-            } catch (e) {
-                console.error("Error returning to admin view: ", e);
-                showTemporaryMessage("화면 전환 중 오류가 발생했습니다.", 'bg-red-500');
-            }
+        backToAdminButton.addEventListener('click', () => {
+            setDoc(getStatusDoc(), { revealed: false }, { merge: true })
+                .then(() => {
+                    showTemporaryMessage("관리자 화면으로 돌아갑니다.", 'bg-blue-500');
+                })
+                .catch(error => {
+                    console.error("Error returning to admin view:", error);
+                    showTemporaryMessage("전환 중 오류가 발생했습니다.", 'bg-red-500');
+                });
         });
-
+        
         changePasswordButton.addEventListener('click', () => {
             passwordModal.classList.remove('hidden');
         });
@@ -357,7 +315,7 @@ const firebaseConfig = {
             <p class="text-center text-gray-600 mb-8">퀴즈의 답을 제출하고, 정답이 공개될 때까지 기다려 주세요!</p>
             
             <!-- 참가자 화면 -->
-            <div id="participant-view">
+            <div id="participant-view" class="hidden">
                 <form id="quiz-form" class="space-y-4">
                     <input type="text" id="participant-name" placeholder="이름을 입력하세요" required class="w-full p-4 rounded-xl border-2 border-gray-200 bg-gray-50 focus:outline-none focus:border-orange-500 transition-all duration-200 text-gray-800">
                     <textarea id="quiz-answer" placeholder="여기에 답을 적어주세요" required class="w-full p-4 h-32 rounded-xl border-2 border-gray-200 bg-gray-50 focus:outline-none focus:border-orange-500 transition-all duration-200 text-gray-800"></textarea>
@@ -425,8 +383,9 @@ const firebaseConfig = {
                 </div>
             </div>
             
+            <div id="user-id-display" class="mt-8 text-center text-sm text-gray-500"></div>
+            
         </div>
     </div>
 </body>
 </html>
-
