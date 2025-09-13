@@ -21,6 +21,8 @@
     </style>
     <!-- Firebase CDN -->
     <script type="module">
+        console.log("스크립트 시작: '퀴즈감귤' 앱을 로딩하는 중...");
+
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, updateDoc, doc, getDocs, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -60,6 +62,7 @@ const firebaseConfig = {
   appId: "1:338874271866:web:0daa61b1ffac399afcd3c3",
   measurementId: "G-M7XC207KW3"
 };
+
         // 앱 환경에서 제공되는 고유한 값을 사용하도록 수정
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -96,9 +99,11 @@ const firebaseConfig = {
 
         // Initialize and authenticate Firebase
         const initFirebase = async () => {
+            console.log("Firebase 초기화 중...");
             if (!firebaseConfig.apiKey) {
-                showTemporaryMessage("Firebase 설정이 필요합니다. 코드를 수정해주세요.", 'bg-red-500');
-                console.error("Firebase config is not available. Please fill in your Firebase project details.");
+                const message = "Firebase 설정이 필요합니다. 코드를 수정해주세요.";
+                console.error(message);
+                showTemporaryMessage(message, 'bg-red-500');
                 return;
             }
             try {
@@ -116,7 +121,7 @@ const firebaseConfig = {
                         userId = auth.currentUser.uid;
                     }
                     isAuthReady = true;
-                    console.log('Firebase is ready.');
+                    console.log('Firebase가 준비되었습니다. 사용자 ID:', userId);
                     setupRealtimeListeners();
                 });
 
@@ -125,7 +130,7 @@ const firebaseConfig = {
                 }
 
             } catch (error) {
-                console.error("Firebase initialization failed:", error);
+                console.error("Firebase 초기화 실패:", error);
                 showTemporaryMessage("Firebase 연결에 실패했습니다. 설정을 확인해주세요.", 'bg-red-500');
             }
         };
