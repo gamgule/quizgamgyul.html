@@ -64,6 +64,7 @@ const firebaseConfig = {
         const adminLoginButton = document.getElementById('admin-login-button');
         const adminLoginPass = document.getElementById('admin-login-password');
         const backToParticipantButton = document.getElementById('back-to-participant');
+        const backToAdminButton = document.getElementById('back-to-admin'); // 새로운 버튼 추가
         const adminButton = document.getElementById('admin-button');
 
         // Initialize and authenticate Firebase
@@ -115,7 +116,8 @@ const firebaseConfig = {
                         revealed = true;
                     }
                 });
-
+                
+                // onSnapshot이 호출될 때마다 UI를 업데이트합니다.
                 updateUI(answers, revealed);
             });
         };
@@ -236,7 +238,7 @@ const firebaseConfig = {
                 isAdmin = true;
                 localStorage.setItem('isAdmin', 'true');
                 showTemporaryMessage("관리자 로그인 성공!", 'bg-green-500');
-                updateUI(); // Refresh UI to show admin view
+                updateUI([], false); // 강제로 UI를 업데이트하여 관리자 화면을 표시
             } else {
                 showTemporaryMessage("비밀번호가 올바르지 않습니다.", 'bg-red-500');
             }
@@ -245,7 +247,22 @@ const firebaseConfig = {
         backToParticipantButton.addEventListener('click', () => {
             isAdmin = false;
             localStorage.removeItem('isAdmin');
-            updateUI(); // Refresh UI to show participant view
+            updateUI([], false); // 참가자 화면으로 돌아가기
+        });
+
+        // 결과 화면에서 관리자 화면으로 돌아가는 버튼
+        backToAdminButton.addEventListener('click', () => {
+            isAdmin = true;
+            localStorage.setItem('isAdmin', 'true');
+            // 'revealed' 상태를 false로 바꾸어 관리자 화면으로 돌아감
+            const q = query(collection(db, QUIZ_COLLECTION_PATH));
+            onSnapshot(q, (snapshot) => {
+                let answers = [];
+                snapshot.forEach((doc) => {
+                    answers.push({ id: doc.id, ...doc.data() });
+                });
+                updateUI(answers, false);
+            });
         });
 
         const showTemporaryMessage = (message, colorClass) => {
@@ -312,6 +329,9 @@ const firebaseConfig = {
                     <ul id="quiz-results-list-final" class="space-y-3">
                         <!-- 최종 답변 목록이 여기에 표시됩니다 -->
                     </ul>
+                </div>
+                <div class="mt-4 text-center">
+                    <button id="back-to-admin" class="text-sm text-gray-400 hover:text-orange-500 transition-colors duration-200">관리자 화면으로 돌아가기</button>
                 </div>
             </div>
             
