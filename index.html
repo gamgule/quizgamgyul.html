@@ -61,8 +61,9 @@ const firebaseConfig = {
   measurementId: "G-M7XC207KW3"
 };
 
-        const appId = "default-app-id";
-        const initialAuthToken = null;
+        // 앱 환경에서 제공되는 고유한 값을 사용하도록 수정
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let isAuthReady = false;
         
@@ -106,10 +107,12 @@ const firebaseConfig = {
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
+                // 인증 상태를 한 번에 처리하도록 로직 개선
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
                     } else {
+                        // 사용자 토큰이 없는 경우 익명으로 로그인
                         await signInAnonymously(auth);
                         userId = auth.currentUser.uid;
                     }
@@ -249,8 +252,8 @@ const firebaseConfig = {
             try {
                 // 먼저 모든 답변 문서 삭제
                 const q = query(collection(db, QUIZ_COLLECTION_PATH));
-                const snapshot = await getDocs(q);
-                const deletions = snapshot.docs.map(d => deleteDoc(d.ref));
+                const answerDocs = await getDocs(q);
+                const deletions = answerDocs.docs.map(d => deleteDoc(d.ref));
                 await Promise.all(deletions);
                 
                 // 그 다음 퀴즈 상태 초기화
