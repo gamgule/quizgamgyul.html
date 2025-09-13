@@ -32,6 +32,7 @@
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let isAuthReady = false;
+        let isUserAdmin = false; // Add state to track admin status
         
         // Firestore collection path
         const QUIZ_COLLECTION_PATH = `artifacts/${appId}/public/data/quiz_answers`;
@@ -123,10 +124,7 @@
             } else {
                 resultsContainer.classList.add('hidden');
                 
-                // Check if admin is logged in (via the adminView state) and update based on that
-                const isAdmin = !adminView.classList.contains('hidden');
-
-                if (isAdmin) {
+                if (isUserAdmin) {
                     participantView.classList.add('hidden');
                     adminView.classList.remove('hidden');
                     adminLoginView.classList.add('hidden');
@@ -221,9 +219,8 @@
         adminLoginButton.addEventListener('click', () => {
             const password = adminLoginPass.value;
             if (password === 'gamgyul') {
-                participantView.classList.add('hidden');
-                adminView.classList.remove('hidden');
-                adminLoginView.classList.add('hidden');
+                isUserAdmin = true; // Set the admin state variable
+                updateUI([], false); // Immediately update UI based on new state
                 showTemporaryMessage("Admin login successful!", 'bg-green-500');
             } else {
                 showTemporaryMessage("Incorrect password.", 'bg-red-500');
@@ -231,9 +228,8 @@
         });
 
         backToParticipantButton.addEventListener('click', () => {
-            participantView.classList.remove('hidden');
-            adminView.classList.add('hidden');
-            adminLoginView.classList.add('hidden');
+            isUserAdmin = false; // Reset the admin state
+            updateUI([], false); // Immediately update UI based on new state
         });
 
         const showTemporaryMessage = (message, colorClass) => {
