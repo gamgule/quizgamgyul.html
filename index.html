@@ -46,8 +46,7 @@ const firebaseConfig = {
   projectId: "quiz-gamgule",
   storageBucket: "quiz-gamgule.firebasestorage.app",
   messagingSenderId: "338874271866",
-  appId: "1:338874271866:web:ea13115a67b9c182fcd3c3",
-  measurementId: "G-S7ML16E2CY"
+  appId: "1:338874271866:web:ea13115a67b9c182fcd3c3"
 };
         
         const appId = firebaseConfig.appId;
@@ -121,6 +120,7 @@ const firebaseConfig = {
                 if (docSnap.exists()) {
                     adminPassword = docSnap.data().password;
                 } else {
+                    // 문서가 없으면 기본 비밀번호로 생성
                     await setDoc(passwordDocRef, { password: adminPassword });
                 }
             } catch (e) {
@@ -280,8 +280,6 @@ const firebaseConfig = {
         });
 
         backToAdminButton.addEventListener('click', () => {
-            // 이 버튼은 isUserAdmin이 true일 때만 보이므로,
-            // 별도의 확인 없이 바로 관리자 화면으로 전환
             updateUI([], false);
         });
 
@@ -304,7 +302,7 @@ const firebaseConfig = {
 
             try {
                 const passwordDocRef = doc(db, ADMIN_PASSWORD_DOC_PATH);
-                await updateDoc(passwordDocRef, { password: newPassword });
+                await setDoc(passwordDocRef, { password: newPassword });
                 adminPassword = newPassword; // 로컬 변수도 업데이트
                 passwordModal.classList.add('hidden');
                 showTemporaryMessage("비밀번호가 성공적으로 변경되었습니다!", 'bg-green-500');
