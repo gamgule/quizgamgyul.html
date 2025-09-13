@@ -25,11 +25,12 @@
         let db;
         let auth;
         let userId;
+        let isAdmin = false;
 
         // ======================================================================================
-        // 여기! Firebase 콘솔에서 "앱에 Firebase 추가"의 '구성' 부분을 복사해서 붙여넣어 주세요.
+        // 여기에 여러분의 Firebase 설정값을 붙여넣어 주세요.
         // ======================================================================================
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyCKUUty_87HsQIlpsSNZunnHpULAlM32Pc",
   authDomain: "quiz-gamgule.firebaseapp.com",
@@ -39,6 +40,8 @@ const firebaseConfig = {
   appId: "1:338874271866:web:0daa61b1ffac399afcd3c3",
   measurementId: "G-M7XC207KW3"
 };
+            // Your Firebase config goes here
+        };
 
         const appId = "default-app-id";
         const initialAuthToken = null;
@@ -58,7 +61,7 @@ const firebaseConfig = {
         const resetButton = document.getElementById('reset-button');
         const statusMessage = document.getElementById('status-message');
         const resultsListAdmin = document.getElementById('quiz-results-list-admin');
-        const resultsListFinal = document.getElementById('quiz-results-list-final');
+        const resultsListFinal = document = document.getElementById('quiz-results-list-final');
         const adminLoginButton = document.getElementById('admin-login-button');
         const adminLoginPass = document.getElementById('admin-login-password');
         const backToParticipantButton = document.getElementById('back-to-participant');
@@ -135,9 +138,6 @@ const firebaseConfig = {
             } else {
                 resultsContainer.classList.add('hidden');
                 
-                const urlParams = new URLSearchParams(window.location.search);
-                const isAdmin = urlParams.get('admin') === 'true';
-
                 if (isAdmin) {
                     participantView.classList.add('hidden');
                     adminView.classList.remove('hidden');
@@ -232,20 +232,19 @@ const firebaseConfig = {
 
         adminLoginButton.addEventListener('click', () => {
             const password = adminLoginPass.value;
+            // Admin password
             if (password === 'gamgyul') {
-                participantView.classList.add('hidden');
-                adminView.classList.remove('hidden');
-                adminLoginView.classList.add('hidden');
+                isAdmin = true;
                 showTemporaryMessage("관리자 로그인 성공!", 'bg-green-500');
+                updateUI(); // Refresh UI to show admin view
             } else {
                 showTemporaryMessage("비밀번호가 올바르지 않습니다.", 'bg-red-500');
             }
         });
 
         backToParticipantButton.addEventListener('click', () => {
-            participantView.classList.remove('hidden');
-            adminView.classList.add('hidden');
-            adminLoginView.classList.add('hidden');
+            isAdmin = false;
+            updateUI(); // Refresh UI to show participant view
         });
 
         const showTemporaryMessage = (message, colorClass) => {
