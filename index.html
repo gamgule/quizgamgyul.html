@@ -182,6 +182,11 @@ const firebaseConfig = {
         quizForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
+            if (!db) {
+                showTemporaryMessage("Firebase가 아직 초기화되지 않았습니다. 잠시 후 다시 시도해주세요.", 'bg-red-500');
+                return;
+            }
+
             const name = document.getElementById('participant-name').value;
             const answer = document.getElementById('quiz-answer').value;
 
@@ -200,7 +205,7 @@ const firebaseConfig = {
                 showTemporaryMessage("답변이 성공적으로 제출되었습니다!", 'bg-green-500');
             } catch (error) {
                 console.error("Error submitting answer:", error);
-                showTemporaryMessage("답변 제출 중 오류가 발생했습니다.", 'bg-red-500');
+                showTemporaryMessage(`답변 제출 중 오류가 발생했습니다: ${error.message}`, 'bg-red-500');
             }
         });
 
