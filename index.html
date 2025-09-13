@@ -11,6 +11,13 @@
         body {
             font-family: 'Inter', sans-serif;
         }
+        .modal {
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
     </style>
     <!-- Firebase CDN -->
     <script type="module">
@@ -27,6 +34,9 @@
         let userId;
         // 관리자 상태를 브라우저에 저장
         let isAdmin = localStorage.getItem('isAdmin') === 'true';
+        // 경고: 이 데모에서는 비밀번호를 JavaScript 변수로 관리합니다. 실제 애플리케이션에서는
+        // 사용자 인증 시스템(예: Firebase Authentication)을 사용해야 합니다.
+        let adminPassword = 'gamgyul';
 
         // ======================================================================================
         // 여기에 여러분의 Firebase 설정값을 붙여넣어 주세요.
@@ -64,8 +74,15 @@ const firebaseConfig = {
         const adminLoginButton = document.getElementById('admin-login-button');
         const adminLoginPass = document.getElementById('admin-login-password');
         const backToParticipantButton = document.getElementById('back-to-participant');
-        const backToAdminButton = document.getElementById('back-to-admin'); // 새로운 버튼 추가
+        const backToAdminButton = document.getElementById('back-to-admin');
         const adminButton = document.getElementById('admin-button');
+        const changePasswordButton = document.getElementById('change-password-button');
+        const passwordModal = document.getElementById('password-modal');
+        const changePassForm = document.getElementById('change-password-form');
+        const cancelChangePassButton = document.getElementById('cancel-change-password');
+        const currentPassInput = document.getElementById('current-password');
+        const newPassInput = document.getElementById('new-password');
+        const confirmNewPassInput = document.getElementById('confirm-new-password');
 
         // Initialize and authenticate Firebase
         const initFirebase = async () => {
@@ -128,6 +145,7 @@ const firebaseConfig = {
                 participantView.classList.add('hidden');
                 adminView.classList.add('hidden');
                 adminLoginView.classList.add('hidden');
+                passwordModal.classList.add('hidden');
                 
                 resultsListFinal.innerHTML = '';
                 answers.forEach(answer => {
@@ -158,6 +176,7 @@ const firebaseConfig = {
                     participantView.classList.remove('hidden');
                     adminView.classList.add('hidden');
                     adminLoginView.classList.add('hidden');
+                    passwordModal.classList.add('hidden');
                 }
             }
         };
@@ -233,12 +252,11 @@ const firebaseConfig = {
 
         adminLoginButton.addEventListener('click', () => {
             const password = adminLoginPass.value;
-            // Admin password
-            if (password === 'gamgyul') {
+            if (password === adminPassword) {
                 isAdmin = true;
                 localStorage.setItem('isAdmin', 'true');
                 showTemporaryMessage("관리자 로그인 성공!", 'bg-green-500');
-                updateUI([], false); // 강제로 UI를 업데이트하여 관리자 화면을 표시
+                setupRealtimeListener();
             } else {
                 showTemporaryMessage("비밀번호가 올바르지 않습니다.", 'bg-red-500');
             }
@@ -247,22 +265,51 @@ const firebaseConfig = {
         backToParticipantButton.addEventListener('click', () => {
             isAdmin = false;
             localStorage.removeItem('isAdmin');
-            updateUI([], false); // 참가자 화면으로 돌아가기
+            setupRealtimeListener();
         });
 
-        // 결과 화면에서 관리자 화면으로 돌아가는 버튼
         backToAdminButton.addEventListener('click', () => {
-            isAdmin = true;
-            localStorage.setItem('isAdmin', 'true');
-            // 'revealed' 상태를 false로 바꾸어 관리자 화면으로 돌아감
-            const q = query(collection(db, QUIZ_COLLECTION_PATH));
-            onSnapshot(q, (snapshot) => {
-                let answers = [];
-                snapshot.forEach((doc) => {
-                    answers.push({ id: doc.id, ...doc.data() });
-                });
-                updateUI(answers, false);
-            });
+            participantView.classList.add('hidden');
+            adminView.classList.add('hidden');
+            adminLoginView.classList.remove('hidden');
+            adminLoginPass.value = '';
+        });
+
+        // 비밀번호 변경 버튼 클릭 시 모달 표시
+        changePasswordButton.addEventListener('click', () => {
+            passwordModal.classList.remove('hidden');
+        });
+        
+        // 비밀번호 변경 모달 취소 버튼
+        cancelChangePassButton.addEventListener('click', () => {
+            passwordModal.classList.add('hidden');
+            changePassForm.reset();
+        });
+
+        // 비밀번호 변경 폼 제출 처리
+        changePassForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const current = currentPassInput.value;
+            const newPass = newPassInput.value;
+            const confirmNewPass = confirmNewPassInput.value;
+
+            if (current !== adminPassword) {
+                showTemporaryMessage("현재 비밀번호가 일치하지 않습니다.", 'bg-red-500');
+                return;
+            }
+
+            if (newPass !== confirmNewPass) {
+                showTemporaryMessage("새 비밀번호가 일치하지 않습니다.", 'bg-red-500');
+                return;
+            }
+
+            // 비밀번호 변경
+            adminPassword = newPass;
+            showTemporaryMessage("비밀번호가 성공적으로 변경되었습니다!", 'bg-green-500');
+            passwordModal.classList.add('hidden');
+            changePassForm.reset();
+            // 경고: 실제 애플리케이션에서는 서버에 변경 요청을 보내고,
+            // 하드코딩된 변수 대신 안전한 방법으로 비밀번호를 업데이트해야 합니다.
         });
 
         const showTemporaryMessage = (message, colorClass) => {
@@ -320,6 +367,9 @@ const firebaseConfig = {
                     <button id="reveal-button" class="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl w-full md:w-auto">정답 공개하기</button>
                     <button id="reset-button" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl w-full md:w-auto">새 퀴즈 시작하기</button>
                 </div>
+                <div class="mt-4 text-center">
+                    <button id="change-password-button" class="text-sm text-gray-400 hover:text-orange-500 transition-colors duration-200">비밀번호 변경</button>
+                </div>
             </div>
 
             <!-- 결과 화면 (정답 공개 후) -->
@@ -332,6 +382,22 @@ const firebaseConfig = {
                 </div>
                 <div class="mt-4 text-center">
                     <button id="back-to-admin" class="text-sm text-gray-400 hover:text-orange-500 transition-colors duration-200">관리자 화면으로 돌아가기</button>
+                </div>
+            </div>
+
+            <!-- 비밀번호 변경 모달 -->
+            <div id="password-modal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+                <div class="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full">
+                    <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">비밀번호 변경</h2>
+                    <form id="change-password-form" class="space-y-4">
+                        <input type="password" id="current-password" placeholder="현재 비밀번호" required class="w-full p-4 rounded-xl border-2 border-gray-200 bg-gray-50 focus:outline-none focus:border-orange-500 transition-all duration-200 text-gray-800">
+                        <input type="password" id="new-password" placeholder="새 비밀번호" required class="w-full p-4 rounded-xl border-2 border-gray-200 bg-gray-50 focus:outline-none focus:border-orange-500 transition-all duration-200 text-gray-800">
+                        <input type="password" id="confirm-new-password" placeholder="새 비밀번호 확인" required class="w-full p-4 rounded-xl border-2 border-gray-200 bg-gray-50 focus:outline-none focus:border-orange-500 transition-all duration-200 text-gray-800">
+                        <div class="flex justify-between gap-4">
+                            <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-xl transition-all duration-300 ease-in-out shadow-lg">변경</button>
+                            <button type="button" id="cancel-change-password" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 rounded-xl transition-all duration-300 ease-in-out shadow-lg">취소</button>
+                        </div>
+                    </form>
                 </div>
             </div>
             
